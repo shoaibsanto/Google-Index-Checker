@@ -26,10 +26,15 @@ def check_index_status(url):
     if result_stats:
         # Extract only numeric parts using regex
         result_text = result_stats.text.strip()
-        match = re.search(r'(\d[\d,]*)', result_text)
+        match = re.search(r'(\d[\d,]*)', result_text)  # Find a number in the text
         if match:
-            result_number = match.group(1).replace(',', '')  # Remove commas from the number
-            return int(result_number) > 0
+            result_number = match.group(1).replace(',', '')  # Remove commas
+            try:
+                return int(result_number) > 0
+            except ValueError:
+                # Log an error if conversion fails
+                print(f"Error: Unable to convert '{result_number}' to an integer for URL: {url}")
+                return False
         else:
             return False
     else:
@@ -69,7 +74,7 @@ if uploaded_file is not None:
         progress_bar.progress((i + 1) / len(domains_to_check))
         status_text.text(f"Checking: {domain} - {index_status}")
         
-        # Add a delay between requests
+        # Add a delay between requests to avoid getting blocked by Google
         time.sleep(2)
 
     # Create a dataframe from the results
