@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup as bs
 import time
 import streamlit as st
 import pandas as pd
+import re
 
 # Function to check index status of a domain
 def check_index_status(url):
@@ -23,11 +24,14 @@ def check_index_status(url):
     result_stats = soup.find('div', attrs={'id': 'result-stats'})
 
     if result_stats:
-        # Extract the number of results from the text if available
-        result_text = result_stats.text.strip().split(' ')[1]
-        result = int(result_text.replace(',', ''))  # Remove commas and convert to an integer
-
-        return result > 0
+        # Extract only numeric parts using regex
+        result_text = result_stats.text.strip()
+        match = re.search(r'(\d[\d,]*)', result_text)
+        if match:
+            result_number = match.group(1).replace(',', '')  # Remove commas from the number
+            return int(result_number) > 0
+        else:
+            return False
     else:
         return False
 
