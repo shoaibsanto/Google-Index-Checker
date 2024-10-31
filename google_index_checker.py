@@ -1,95 +1,47 @@
 import csv
-import requests
-from bs4 import BeautifulSoup as bs
 import time
-import streamlit as st
-import pandas as pd
-import re
+import requests
 
-# Function to check index status of a domain
-def check_index_status(url):
-    base = f'https://www.google.com/search?q=site%3A{url}'
-    headers = {
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
-    }
+# Load the domains to check from a text file
+with open("mybabynamemeaning.txt", "r") as file:
+    domains_to_check = [line.strip() for line in file.readlines()]
 
-    # Create a session and make a request
-    s = requests.session()
-    r = s.get(base, headers=headers)
+# Prepare CSV file to save results
+output_file = "index_status.csv"
+with open(output_file, mode="w", newline="") as csvfile:
+    fieldnames = ["urls", "index_status"]
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    writer.writeheader()
 
-    # Parse the page content
-    soup = bs(r.content, 'html.parser')
+    # Function to check if a domain is indexed on Google
+    def check_index_status(domain):
+        query = f"site:{domain}"
+        url = f"https://www.google.com/search?q={query}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.121 Safari/537.36"
+        }
 
-    # Try to find the element with id='result-stats'
-    result_stats = soup.find('div', attrs={'id': 'result-stats'})
-
-    if result_stats:
-        # Extract only numeric parts using regex
-        result_text = result_stats.text.strip()
-        match = re.search(r'(\d[\d,]*)', result_text)  # Find a number in the text
-        if match:
-            result_number = match.group(1).replace(',', '')  # Remove commas
-            try:
-                return int(result_number) > 0
-            except ValueError:
-                # Log an error if conversion fails
-                print(f"Error: Unable to convert '{result_number}' to an integer for URL: {url}")
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            # Check if "did not match any documents" is in the response, indicating not indexed
+            if "did not match any documents" in response.text:
                 return False
-        else:
+            return True
+        except requests.exceptions.RequestException as e:
+            print(f"Error checking {domain}: {e}")
             return False
-    else:
-        return False
 
-# Streamlit app setup
-st.title("Google Index Checker")
+    # Iterate over each domain and check indexing status
+    for domain in domains_to_check:
+        is_indexed = check_index_status(domain)
+        index_status = "Indexed" if is_indexed else "Not Indexed"
+        print(f"{domain} - {index_status}")
 
-# File uploader to upload the text file containing URLs
-uploaded_file = st.file_uploader("Choose a file", type="txt")
+        # Write the result to CSV
+        writer.writerow({"urls": domain, "index_status": index_status})
 
-# If the file is uploaded
-if uploaded_file is not None:
-    # Decode the uploaded file to get the URLs as a list of strings
-    content = uploaded_file.getvalue().decode("utf-8")
-    domains_to_check = [line.strip() for line in content.splitlines()]
+        # Add a delay to avoid rate-limiting by Google
+        time.sleep(5)
 
-    # Create a dataframe to store the results
-    results = []
-    
-    # Progress bar
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-
-    # Prepare CSV file to save results
-    output_file = "index_status.csv"
-    
-    # Iterate over the domains and check their indexing status
-    for i, domain in enumerate(domains_to_check):
-        found = check_index_status(domain)
-
-        # Display the result
-        index_status = "Indexed" if found else "Not Indexed"
-        results.append({"urls": domain, "index_status": index_status})
-
-        # Update progress bar and status
-        progress_bar.progress((i + 1) / len(domains_to_check))
-        status_text.text(f"Checking: {domain} - {index_status}")
-        
-        # Add a delay between requests to avoid getting blocked by Google
-        time.sleep(2)
-
-    # Create a dataframe from the results
-    df = pd.DataFrame(results)
-
-    # Display the dataframe
-    st.write("Results:", df)
-
-    # Convert dataframe to CSV
-    csv = df.to_csv(index=False).encode('utf-8')
-
-    # Download button for the CSV file
-    st.download_button(
-        label="Download CSV",
-        data=csv,
-        file_name=output_file,
-        mime='text/csv',
-    )
+print(f"Indexing results saved to {output_file}")
