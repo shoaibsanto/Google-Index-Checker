@@ -3,7 +3,7 @@ import time
 import requests
 
 # Load the domains to check from a text file
-with open("mybabynamemeaning.txt", "r") as file:
+with open("urls.txt", "r") as file:
     domains_to_check = [line.strip() for line in file.readlines()]
 
 # Prepare CSV file to save results
