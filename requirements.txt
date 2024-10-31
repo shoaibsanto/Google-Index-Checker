@@ -1,5 +1,3 @@
-csvkit
+csv
+time
 requests
-beautifulsoup4
-streamlit
-pandas
