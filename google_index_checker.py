@@ -1,16 +1,23 @@
 import csv
 import time
 import requests
+import streamlit as st
+from io import StringIO
 
-# Load the domains to check from a text file
-with open("urls.txt", "r") as file:
-    domains_to_check = [line.strip() for line in file.readlines()]
+# Streamlit interface
+st.title("Google Indexing Checker")
 
-# Prepare CSV file to save results
-output_file = "index_status.csv"
-with open(output_file, mode="w", newline="") as csvfile:
+# Upload the file containing URLs
+uploaded_file = st.file_uploader("Upload a TXT file with URLs", type="txt")
+
+if uploaded_file is not None:
+    # Read the uploaded file
+    domains_to_check = [line.strip() for line in uploaded_file.read().decode("utf-8").splitlines()]
+
+    # Prepare CSV file data in memory
+    output = StringIO()
     fieldnames = ["urls", "index_status"]
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
 
     # Function to check if a domain is indexed on Google
@@ -29,19 +36,30 @@ with open(output_file, mode="w", newline="") as csvfile:
                 return False
             return True
         except requests.exceptions.RequestException as e:
-            print(f"Error checking {domain}: {e}")
+            st.write(f"Error checking {domain}: {e}")
             return False
+
+    # Display a header for indexing results
+    st.write("Indexing Results:")
 
     # Iterate over each domain and check indexing status
     for domain in domains_to_check:
         is_indexed = check_index_status(domain)
         index_status = "Indexed" if is_indexed else "Not Indexed"
-        print(f"{domain} - {index_status}")
+        
+        # Display each result on a new line without JSON format
+        st.write(f"{domain} - {index_status}")
 
-        # Write the result to CSV
+        # Write the result to in-memory CSV
         writer.writerow({"urls": domain, "index_status": index_status})
 
         # Add a delay to avoid rate-limiting by Google
         time.sleep(5)
 
-print(f"Indexing results saved to {output_file}")
+    # Convert in-memory CSV to downloadable file
+    st.download_button(
+        label="Download results as CSV",
+        data=output.getvalue(),
+        file_name="index_status.csv",
+        mime="text/csv"
+    )
